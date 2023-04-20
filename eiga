@@ -1,0 +1,116 @@
+#!/bin/bash
+
+red="\033[1;31m"
+reset="\033[0m"
+
+_movies_search_url="https://yts.mx/api/v2/list_movies.json?sort_by=download_count&limit=50"
+_movie_details_url="https://yts.mx/api/v2/movie_details.json"
+
+_search_query=""
+_results=""
+_choice_id=""
+_torrents=""
+_torrent_url=""
+
+
+log_error() {
+  printf "${red}%s${reset}\n" "$@"
+}
+
+check_deps() {
+  missing_deps=""
+  for dep in jq curl fzf xdg-open; do
+    command -v "$dep" >/dev/null || missing_deps="${missing_deps} ${dep}"
+  done
+
+  if [ "$missing_deps" != "" ]; then
+    for dep in $missing_deps; do
+      log_error "$dep is not installed."
+    done
+    exit 1
+  fi
+}
+
+get_search_query() {
+  printf '> '
+  read -r _search_query
+}
+
+send_request() {
+  _base_url="$1"
+  shift 1
+
+  curl -fsG "$_base_url" -L "$@" --compressed
+
+}
+
+fetch_movies() {
+  raw_response=$(send_request "$_movies_search_url" --data-urlencode "query_term=$_search_query")
+
+  _results_count=$(jq .data.movie_count <<< "$raw_response")
+
+  if [[ $_results_count -gt 0 ]]; then
+    _results=$(jq -r '.data.movies | map("\(.id|tostring)=\(.title) (\(.year|tostring))")[]' <<< "$raw_response")
+  fi
+
+}
+
+display_movies() {
+
+  fetch_movies
+
+  if [ -z "$_results" ]; then
+    log_error "Could not find any movies."
+    exit 1
+  fi
+
+  choice=$(fzf --reverse -d "=" --with-nth=2 <<< "$_results")
+
+  if [ -z "$choice" ]; then
+    log_error "aborted."
+    exit 1
+  fi
+
+  IFS='=' read -r _choice_id _ <<< "$choice"
+}
+
+fetch_download_links() {
+  raw_response=$(send_request "$_movie_details_url" --data-urlencode "movie_id=$_choice_id")
+
+  _torrents=$(jq -r '.data.movie.torrents | map("\(.url)=\(.type) \(.quality) (\(.size))")[]' <<< "$raw_response")
+
+}
+
+display_download_links() {
+  fetch_download_links
+  choice=$(fzf --reverse -d "=" --with-nth=2 <<< "$_torrents")
+
+  if [ -z "$choice" ]; then
+    log_error "aborted."
+    exit 1
+  fi
+
+  IFS='=' read -r _torrent_url _ <<< "$choice"
+}
+
+download_and_open_torrent() {
+  filename=$(mktemp --suffix=.torrent)
+  send_request "$_torrent_url" -o "$filename"
+  xdg-open "$filename" &>/dev/null
+}
+
+main() {
+
+  check_deps
+
+  get_search_query
+
+  display_movies
+
+  display_download_links
+
+  download_and_open_torrent
+
+}
+
+main "$@"
