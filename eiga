@@ -44,6 +44,10 @@ send_request() {
 
 }
 
+display_list() {
+  fzf --reverse -d "=" --with-nth=2 <<< "$@"
+}
+
 fetch_movies() {
   raw_response=$(send_request "$_movies_search_url" --data-urlencode "query_term=$_search_query")
 
@@ -64,7 +68,7 @@ display_movies() {
     exit 1
   fi
 
-  choice=$(fzf --reverse -d "=" --with-nth=2 <<< "$_results")
+  choice=$(display_list "$_results")
 
   if [ -z "$choice" ]; then
     log_error "aborted."
@@ -83,7 +87,7 @@ fetch_download_links() {
 
 display_download_links() {
   fetch_download_links
-  choice=$(fzf --reverse -d "=" --with-nth=2 <<< "$_torrents")
+  choice=$(display_list "$_torrents")
 
   if [ -z "$choice" ]; then
     log_error "aborted."
