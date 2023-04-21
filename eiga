@@ -78,7 +78,9 @@ fetch_movies() {
   results_count=$(jq .data.movie_count <<< "$raw_response")
 
   if [[ $results_count -gt 0 ]]; then
-    readarray -t results < <(jq -r '.data.movies[] | [.id, "M", .title, .year] | join("\t|")' <<< "$raw_response")
+    results+=(
+      "$(jq -r '.data.movies[] | [.id, "M", .title, .year] | join("\t|")' <<< "$raw_response")"
+    )
   fi
 
 }
