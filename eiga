@@ -7,9 +7,9 @@ _movies_search_url="https://yts.mx/api/v2/list_movies.json?sort_by=download_coun
 _movie_details_url="https://yts.mx/api/v2/movie_details.json"
 
 _search_query=""
-_results=""
+declare -a _results
 _choice_id=""
-_torrents=""
+declare -a _torrents
 _torrent_url=""
 
 
@@ -54,7 +54,7 @@ fetch_movies() {
   _results_count=$(jq .data.movie_count <<< "$raw_response")
 
   if [[ $_results_count -gt 0 ]]; then
-    _results=$(jq -r '.data.movies | map("\(.id|tostring)=\(.title) (\(.year|tostring))")[]' <<< "$raw_response")
+    readarray _results < <(jq -r '.data.movies | map("\(.id|tostring)=\(.title) (\(.year|tostring))")[]' <<< "$raw_response")
   fi
 
 }
@@ -63,12 +63,12 @@ display_movies() {
 
   fetch_movies
 
-  if [ -z "$_results" ]; then
+  if [ ${#_results[@]} -eq 0 ]; then
     log_error "Could not find any movies."
     exit 1
   fi
 
-  choice=$(display_list "$_results")
+  choice=$(display_list "${_results[@]}")
 
   if [ -z "$choice" ]; then
     log_error "aborted."
@@ -81,13 +81,13 @@ display_movies() {
 fetch_download_links() {
   raw_response=$(send_request "$_movie_details_url" --data-urlencode "movie_id=$_choice_id")
 
-  _torrents=$(jq -r '.data.movie.torrents | map("\(.url)=\(.type) \(.quality) (\(.size))")[]' <<< "$raw_response")
+  readarray _torrents < <(jq -r '.data.movie.torrents | map("\(.url)=\(.type) \(.quality) (\(.size))")[]' <<< "$raw_response")
 
 }
 
 display_download_links() {
   fetch_download_links
-  choice=$(display_list "$_torrents")
+  choice=$(display_list "${_torrents[@]}")
 
   if [ -z "$choice" ]; then
     log_error "aborted."
