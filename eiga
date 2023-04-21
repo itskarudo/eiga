@@ -3,15 +3,8 @@
 red="\033[1;31m"
 reset="\033[0m"
 
-_movies_search_url="https://yts.mx/api/v2/list_movies.json?sort_by=download_count&limit=50"
-_movie_details_url="https://yts.mx/api/v2/movie_details.json"
-
-_search_query=""
-declare -a _results
-_choice_id=""
-declare -a _torrents
-_torrent_url=""
-
+movies_search_url="https://yts.mx/api/v2/list_movies.json?sort_by=download_count&limit=50"
+movie_details_url="https://yts.mx/api/v2/movie_details.json"
 
 log_error() {
   printf "${red}%s${reset}\n" "$@"
@@ -33,14 +26,14 @@ check_deps() {
 
 get_search_query() {
   printf '> '
-  read -r _search_query
+  read -r search_query
 }
 
 send_request() {
-  _base_url="$1"
+  base_url="$1"
   shift 1
 
-  curl -fsG "$_base_url" -L "$@" --compressed
+  curl -fsG "$base_url" -L "$@" --compressed
 
 }
 
@@ -49,12 +42,12 @@ display_list() {
 }
 
 fetch_movies() {
-  raw_response=$(send_request "$_movies_search_url" --data-urlencode "query_term=$_search_query")
+  raw_response=$(send_request "$movies_search_url" --data-urlencode "query_term=$search_query")
 
-  _results_count=$(jq .data.movie_count <<< "$raw_response")
+  results_count=$(jq .data.movie_count <<< "$raw_response")
 
-  if [[ $_results_count -gt 0 ]]; then
-    readarray _results < <(jq -r '.data.movies | map("\(.id|tostring)=\(.title) (\(.year|tostring))")[]' <<< "$raw_response")
+  if [[ $results_count -gt 0 ]]; then
+    readarray -t results < <(jq -r '.data.movies | map("\(.id|tostring)=\(.title) (\(.year|tostring))")[]' <<< "$raw_response")
   fi
 
 }
@@ -63,43 +56,50 @@ display_movies() {
 
   fetch_movies
 
-  if [ ${#_results[@]} -eq 0 ]; then
+  if [ ${#results[@]} -eq 0 ]; then
     log_error "Could not find any movies."
     exit 1
   fi
 
-  choice=$(display_list "${_results[@]}")
+  OLDIFS=$IFS
+  IFS=$'\n'
+  choice=$(display_list "${results[*]}")
+  IFS=$OLDIFS
 
   if [ -z "$choice" ]; then
     log_error "aborted."
     exit 1
   fi
 
-  IFS='=' read -r _choice_id _ <<< "$choice"
+  IFS='=' read -r choice_id _ <<< "$choice"
 }
 
 fetch_download_links() {
-  raw_response=$(send_request "$_movie_details_url" --data-urlencode "movie_id=$_choice_id")
+  raw_response=$(send_request "$movie_details_url" --data-urlencode "movie_id=$choice_id")
 
-  readarray _torrents < <(jq -r '.data.movie.torrents | map("\(.url)=\(.type) \(.quality) (\(.size))")[]' <<< "$raw_response")
+  readarray -t torrents < <(jq -r '.data.movie.torrents | map("\(.url)=\(.type) \(.quality) (\(.size))")[]' <<< "$raw_response")
 
 }
 
 display_download_links() {
   fetch_download_links
-  choice=$(display_list "${_torrents[@]}")
+
+  OLDIFS=$IFS
+  IFS=$'\n'
+  choice=$(display_list "${torrents[*]}")
+  IFS=$OLDIFS
 
   if [ -z "$choice" ]; then
     log_error "aborted."
     exit 1
   fi
 
-  IFS='=' read -r _torrent_url _ <<< "$choice"
+  IFS='=' read -r torrent_url _ <<< "$choice"
 }
 
 download_and_open_torrent() {
   filename=$(mktemp --suffix=.torrent)
-  send_request "$_torrent_url" -o "$filename"
+  send_request "$torrent_url" -o "$filename"
   xdg-open "$filename" &>/dev/null
 }
 
