@@ -23,7 +23,7 @@ check_deps() {
     command -v "$dep" >/dev/null || missing_deps="${missing_deps} ${dep}"
   done
 
-  if [ "$missing_deps" != "" ]; then
+  if [ -n "$missing_deps" ]; then
     for dep in $missing_deps; do
       log_error "$dep is not installed."
     done
