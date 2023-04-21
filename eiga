@@ -6,6 +6,11 @@ reset="\033[0m"
 movies_search_url="https://yts.mx/api/v2/list_movies.json?sort_by=download_count&limit=50"
 movie_details_url="https://yts.mx/api/v2/movie_details.json"
 
+anime_search_url="https://nyaa.si?s=seeders&o=desc&c=1_0"
+anime_torrent_base_url="https://nyaa.si/download"
+
+results=()
+
 log_error() {
   printf "${red}%s${reset}\n" "$@"
 }
@@ -30,6 +35,7 @@ usage: eiga [options...]
 
 Options:
     -m, --movies              Search in movie sources (yts.mx).
+    -a, --anime               Search in anime sources (nyaa.si).
     -h, --help                Show this text and exit
 "
   exit 1
@@ -42,6 +48,7 @@ parse_args() {
   while [[ "$1" ]]; do
     case "$1" in
       "-m" | "--movies") movies="on";;
+      "-a" | "--anime") anime="on";;
       *) usage;;
     esac
     shift
@@ -76,9 +83,20 @@ fetch_movies() {
 
 }
 
+fetch_anime() {
+  results+=(
+    "$(send_request "$anime_search_url" --data-urlencode "q=$search_query" |
+      grep '<a href="/view/.*" title=".*"' | grep -v comments |
+      sed -e 's/.*view\/\([0-9]*\)" title="\([^"]*\)".*/\1\t|A\t|\2\t|/'
+    )"
+  )
+
+}
+
 display_results() {
 
   [[ $movies = on ]] && fetch_movies
+  [[ $anime = on ]] && fetch_anime
 
   if [ ${#results[@]} -eq 0 ]; then
     log_error "No results found."
@@ -134,11 +152,16 @@ get_movie_torrent_link() {
   printf '%s' "${link%%" "*}"
 }
 
+get_anime_torrent_link() {
+  printf '%s' "${anime_torrent_base_url}/$(get_choice_id).torrent"
+}
+
 
 extract_torrent_link() {
   category=$(get_choice_category)
 
   [[ $category = M ]] && get_movie_torrent_link
+  [[ $category = A ]] && get_anime_torrent_link
 }
 
 download_and_open_torrent() {
