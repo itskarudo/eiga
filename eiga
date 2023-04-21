@@ -24,6 +24,30 @@ check_deps() {
   fi
 }
 
+usage() {
+  printf "%s" "\
+usage: eiga [options...]
+
+Options:
+    -m, --movies              Search in movie sources (yts.mx).
+    -h, --help                Show this text and exit
+"
+  exit 1
+}
+
+parse_args() {
+
+  [[ $# -ge 1 ]] || usage;
+
+  while [[ "$1" ]]; do
+    case "$1" in
+      "-m" | "--movies") movies="on";;
+      *) usage;;
+    esac
+    shift
+  done
+}
+
 get_search_query() {
   printf '> '
   read -r search_query
@@ -52,12 +76,12 @@ fetch_movies() {
 
 }
 
-display_movies() {
+display_results() {
 
-  fetch_movies
+  [[ $movies = on ]] && fetch_movies
 
   if [ ${#results[@]} -eq 0 ]; then
-    log_error "Could not find any movies."
+    log_error "No results found."
     exit 1
   fi
 
@@ -107,9 +131,11 @@ main() {
 
   check_deps
 
+  parse_args "$@"
+
   get_search_query
 
-  display_movies
+  display_results
 
   display_download_links
 
