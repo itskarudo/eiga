@@ -45,7 +45,7 @@ send_request() {
 }
 
 display_list() {
-  fzf --reverse -d "=" --with-nth=2 <<< "$@"
+  fzf --reverse --cycle -d "=" --with-nth=2 <<< "$@"
 }
 
 fetch_movies() {
