@@ -169,7 +169,7 @@ extract_torrent_link() {
 download_and_open_torrent() {
   filename=$(mktemp --suffix=.torrent)
   send_request "$@" -o "$filename"
-  xdg-open "$filename" &>/dev/null
+  xdg-open "$filename" &>/dev/null & disown
 }
 
 main() {
