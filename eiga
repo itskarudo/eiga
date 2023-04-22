@@ -88,7 +88,7 @@ fetch_movies() {
 fetch_anime() {
   results+=(
     "$(send_request "$anime_search_url" --data-urlencode "q=$search_query" |
-      grep '<a href="/view/.*" title=".*"' | grep -v comments |
+      grep '<a href="/view/[0-9]*" title=".*"' |
       sed -e 's/.*view\/\([0-9]*\)" title="\([^"]*\)".*/\1\t|A\t|\2\t|/'
     )"
   )
