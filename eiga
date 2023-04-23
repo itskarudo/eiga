@@ -6,6 +6,9 @@ reset="\033[0m"
 movies_search_url="https://yts.mx/api/v2/list_movies.json?sort_by=download_count&limit=50"
 movie_details_url="https://yts.mx/api/v2/movie_details.json"
 
+shows_search_url="https://1337x.to/category-search/"
+show_details_url="https://1337x.to/torrent/"
+
 anime_search_url="https://nyaa.si?s=seeders&o=desc&c=1_0"
 anime_torrent_base_url="https://nyaa.si/download"
 
@@ -29,12 +32,26 @@ check_deps() {
   fi
 }
 
+urlencode() {
+  local LC_ALL=C
+  for (( i = 0; i < ${#1}; i++ )); do
+    : "${1:i:1}"
+    case "$_" in
+      [a-zA-Z0-9.~_-])
+        printf '%s' "$_";;
+      *)
+        printf '%%%02X' "'$_";;
+    esac
+  done
+}
+
 usage() {
   printf "%s" "\
 usage: eiga [options...]
 
 Options:
     -m, --movies              Search in movie sources (yts.mx).
+    -s, --shows               Search in TV shows sources (1337x).
     -a, --anime               Search in anime sources (nyaa.si).
     -h, --help                Show this text and exit
 "
@@ -48,6 +65,7 @@ parse_args() {
   while [[ "$1" ]]; do
     case "$1" in
       "-m" | "--movies") movies="on";;
+      "-s" | "--shows") shows="on";;
       "-a" | "--anime") anime="on";;
       *) usage;;
     esac
@@ -85,19 +103,34 @@ fetch_movies() {
 
 }
 
+fetch_shows() {
+  encoded_query=$(urlencode "$search_query")
+  raw_response=$(send_request "$shows_search_url$encoded_query/TV/1/" |
+       grep -o '<a href="/torrent/[0-9]*/.*/">.*</a>' |
+        sed -e 's/.*torrent\/\(.*\)\/">\(.*\)<\/a>/\1\t|S\t|\2\t|/'
+    )
+
+    if [[ -n $raw_response ]]; then
+      results+=("$raw_response")
+    fi
+}
+
 fetch_anime() {
-  results+=(
-    "$(send_request "$anime_search_url" --data-urlencode "q=$search_query" |
+  raw_response=$(send_request "$anime_search_url" --data-urlencode "q=$search_query" |
       grep '<a href="/view/[0-9]*" title=".*"' |
       sed -e 's/.*view\/\([0-9]*\)" title="\([^"]*\)".*/\1\t|A\t|\2\t|/'
-    )"
-  )
+    )
+
+    if [[ -n $raw_response ]]; then
+      results+=("$raw_response")
+    fi
 
 }
 
 display_results() {
 
   [[ $movies = on ]] && fetch_movies
+  [[ $shows = on ]] && fetch_shows
   [[ $anime = on ]] && fetch_anime
 
   if [ ${#results[@]} -eq 0 ]; then
@@ -154,6 +187,11 @@ get_movie_torrent_link() {
   printf '%s' "${link%%" "*}"
 }
 
+get_show_torrent_link() {
+  send_request "$show_details_url$(get_choice_id)/" |
+    grep -o 'http://itorrents.org/torrent/.*\.torrent'
+}
+
 get_anime_torrent_link() {
   printf '%s' "${anime_torrent_base_url}/$(get_choice_id).torrent"
 }
@@ -164,6 +202,7 @@ extract_torrent_link() {
 
   case $category in
     M) get_movie_torrent_link;;
+    S) get_show_torrent_link;;
     A) get_anime_torrent_link;;
   esac
 
