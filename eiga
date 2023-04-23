@@ -13,6 +13,7 @@ anime_search_url="https://nyaa.si?s=seeders&o=desc&c=1_0"
 anime_torrent_base_url="https://nyaa.si/download"
 
 results=()
+pages=1
 
 log_error() {
   printf "${red}%s${reset}\n" "$@"
@@ -53,6 +54,7 @@ Options:
     -m, --movies              Search in movie sources (yts.mx).
     -s, --shows               Search in TV shows sources (1337x).
     -a, --anime               Search in anime sources (nyaa.si).
+    -p, --pages               Specify number of pages to fetch.
     -h, --help                Show this text and exit
 "
   exit 1
@@ -67,6 +69,7 @@ parse_args() {
       "-m" | "--movies") movies="on";;
       "-s" | "--shows") shows="on";;
       "-a" | "--anime") anime="on";;
+      "-p" | "--pages") pages=$2; shift ;;
       *) usage;;
     esac
     shift
@@ -91,39 +94,42 @@ display_list() {
 }
 
 fetch_movies() {
-  raw_response=$(send_request "$movies_search_url" --data-urlencode "query_term=$search_query")
+  for ((i=0;i<pages;i++)); do
+    raw_response=$(send_request "$movies_search_url" --data-urlencode "query_term=$search_query" --data-urlencode "page=$i")
 
-  results_count=$(jq .data.movie_count <<< "$raw_response")
+    jq -e '.data|has("movies")' <<< "$raw_response" &>/dev/null || break
 
-  if [[ $results_count -gt 0 ]]; then
     results+=(
       "$(jq -r '.data.movies[] | [.id, "M", .title, .year] | join("\t|")' <<< "$raw_response")"
     )
-  fi
+  done
 
 }
 
 fetch_shows() {
   encoded_query=$(urlencode "$search_query")
-  raw_response=$(send_request "$shows_search_url$encoded_query/TV/1/" |
-       grep -o '<a href="/torrent/[0-9]*/.*/">.*</a>' |
-        sed -e 's/.*torrent\/\(.*\)\/">\(.*\)<\/a>/\1\t|S\t|\2\t|/'
-    )
 
-    if [[ -n $raw_response ]]; then
+  for ((i=0;i<pages;i++)); do
+    raw_response=$(send_request "$shows_search_url$encoded_query/TV/$i/" |
+         grep -o '<a href="/torrent/[0-9]*/.*/">.*</a>' |
+          sed -e 's/.*torrent\/\(.*\)\/">\(.*\)<\/a>/\1\t|S\t|\2\t|/'
+      )
+
+      [[ -n $raw_response ]] || break
       results+=("$raw_response")
-    fi
+  done
 }
 
 fetch_anime() {
-  raw_response=$(send_request "$anime_search_url" --data-urlencode "q=$search_query" |
-      grep '<a href="/view/[0-9]*" title=".*"' |
-      sed -e 's/.*view\/\([0-9]*\)" title="\([^"]*\)".*/\1\t|A\t|\2\t|/'
-    )
+  for ((i=0;i<pages;i++)); do
+    raw_response=$(send_request "$anime_search_url" --data-urlencode "q=$search_query" --data-urlencode "p=$i" |
+        grep '<a href="/view/[0-9]*" title=".*"' |
+        sed -e 's/.*view\/\([0-9]*\)" title="\([^"]*\)".*/\1\t|A\t|\2\t|/'
+      )
 
-    if [[ -n $raw_response ]]; then
-      results+=("$raw_response")
-    fi
+    [[ -n $raw_response ]] || break
+    results+=("$raw_response")
+  done
 
 }
 
