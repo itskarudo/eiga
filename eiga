@@ -51,11 +51,11 @@ usage() {
 usage: eiga [options...]
 
 Options:
-    -m, --movies              Search in movie sources (yts.mx).
-    -s, --shows               Search in TV shows sources (1337x).
-    -a, --anime               Search in anime sources (nyaa.si).
+    -m, --movies              Search in movie sources (yts.mx)
+    -s, --shows               Search in TV shows sources (1337x)
+    -a, --anime               Search in anime sources (nyaa.si)
     -p, --pages               Specify number of pages to fetch.
-    -h, --help                Show this text and exit
+    -h, --help                Show this text and exit.
 "
   exit 1
 }
