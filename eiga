@@ -162,8 +162,11 @@ get_anime_torrent_link() {
 extract_torrent_link() {
   category=$(get_choice_category)
 
-  [[ $category = M ]] && get_movie_torrent_link
-  [[ $category = A ]] && get_anime_torrent_link
+  case $category in
+    M) get_movie_torrent_link;;
+    A) get_anime_torrent_link;;
+  esac
+
 }
 
 download_and_open_torrent() {
