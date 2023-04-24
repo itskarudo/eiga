@@ -13,4 +13,3 @@
 - [x] TV Shows sources (1337x).
 - [x] Anime sources. (nyaa.si).
 - [ ] magnet links support.
-- [ ] show thumbnail previews.
