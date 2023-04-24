@@ -90,7 +90,7 @@ send_request() {
 }
 
 display_list() {
-  printf '%s' "$@" | column -t -s $'\t' | fzf --reverse --cycle -d $'\|' --with-nth=2..
+  printf '%s' "$@" | column -t -s $'\t' | fzf --reverse --cycle -d $'\|' --with-nth=2.. --no-sort
 }
 
 fetch_movies() {
