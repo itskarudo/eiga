@@ -100,7 +100,7 @@ fetch_movies() {
     jq -e '.data|has("movies")' <<< "$raw_response" &>/dev/null || break
 
     results+=(
-      "$(jq -r '.data.movies[] | [.id, "M", .title, .year] | join("\t|")' <<< "$raw_response")"
+    "$(jq -r '.data.movies[] | [.id, "M", .title + " (" + (.year|tostring) + ")"] | join("\t|")' <<< "$raw_response")"
     )
   done
 
@@ -112,7 +112,7 @@ fetch_shows() {
   for ((i=0;i<pages;i++)); do
     raw_response=$(send_request "$shows_search_url$encoded_query/TV/$i/" |
          grep -o '<a href="/torrent/[0-9]*/.*/">.*</a>' |
-          sed -e 's/.*torrent\/\(.*\)\/">\(.*\)<\/a>/\1\t|S\t|\2\t|/'
+          sed -e 's/.*torrent\/\(.*\)\/">\(.*\)<\/a>/\1\t|S\t|\2/'
       )
 
       [[ -n $raw_response ]] || break
@@ -124,7 +124,7 @@ fetch_anime() {
   for ((i=0;i<pages;i++)); do
     raw_response=$(send_request "$anime_search_url" --data-urlencode "q=$search_query" --data-urlencode "p=$i" |
         grep '<a href="/view/[0-9]*" title=".*"' |
-        sed -e 's/.*view\/\([0-9]*\)" title="\([^"]*\)".*/\1\t|A\t|\2\t|/'
+        sed -e 's/.*view\/\([0-9]*\)" title="\([^"]*\)".*/\1\t|A\t|\2/'
       )
 
     [[ -n $raw_response ]] || break
